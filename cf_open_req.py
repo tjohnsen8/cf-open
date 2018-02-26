@@ -5,6 +5,8 @@ import csv
 from bokeh.layouts import gridplot
 from bokeh.plotting import figure, show, output_file
 import numpy as np
+import time
+import json
 
 men_base_url_2017 = 'https://games.crossfit.com/competitions/api/v1/competitions/open/2017/leaderboards?division=1&region=0&scaled=0&sort=0&occupation=0&page='
 
@@ -15,8 +17,8 @@ women_base_url_2018_scaled = 'https://games.crossfit.com/competitions/api/v1/com
 
 pages = []
 
-def build_urls(page_num, division):
-    pages = [] # clear out previous pages
+def build_urls(start, num, division):
+    pages.clear() # clear out previous pages
     base_url = ''
     if division == 'men':
         base_url = men_base_url_2018;
@@ -27,10 +29,9 @@ def build_urls(page_num, division):
     elif division == 'women-s':
         base_url = women_base_url_2018_scaled;
     
-    for i in range(1, page_num):
+    for i in range(start, start + num):
         pages.append(base_url + str(i))
-        
-    return pages
+
 
 def get_pages_2018(division):
     num_pages = 0
@@ -92,11 +93,16 @@ def plot_scores(workout_num, results, division):
     data1 = np.array([ath['scores'][workout_num-1] for ath in results ]).astype(np.float)
     data1 = data1[~np.isnan(data1)]
     # reject extreme outliers 5*std_dev
+    data1 = data1[np.abs(data1 - mu) < 4*sigma]
     mu = np.mean(data1)
     sigma = np.std(data1)
-    data1 = data1[np.abs(data1 - mu) < 5*sigma]
+    median = np.median(data1)
+    mode = np.mode(data1)
     print(mu)
     print(sigma)
+    print(median)
+    print(mode)
+    print(len(data1))
     # get best fit for data
     lower = mu - 4*sigma
     upper = mu + 4*sigma
@@ -111,19 +117,33 @@ def plot_scores(workout_num, results, division):
     show(p1)
 
 def cfopen(division, workout):
-    num_pages = get_pages_2018(division)
-    if num_pages > 1000:
-        num_pages = 1000
-    build_urls(num_pages, division)
-    athletes = get_results_base()
-    results = write_csv(athletes, division)
-    plot_scores(workout, results, division)
+    num_pages_total = get_pages_2018(division)
+    print(num_pages_total)
+    remaining = num_pages_total
+    last_page_used = 1
+    athletes = []
+    while remaining > 0:
+        num_pages = 500
+        if last_page_used + 500 > num_pages_total:
+            num_pages = num_pages_total - last_page_used
+        build_urls(last_page_used, num_pages, division)
+        last_page_used = last_page_used + num_pages
+        remaining = num_pages_total - last_page_used
+        print(pages[0])
+        print(pages[-1:])
+        aths = get_results_base()
+        athletes.extend(aths)
+        print('total athletes {}'.format(len(athletes)))
+        time.sleep(5)
+    if len(athletes) > 0:
+        results = write_csv(athletes, division)
+        plot_scores(workout, results, division)
 
 if __name__ == "__main__":
     print('start')
     # divisions
-    cfopen('men', 1)
-    cfopen('women', 1)
+    #cfopen('men', 1)
+    #cfopen('women', 1)
     cfopen('men-s', 1)
-    cfopen('women-s', 1)
+    #cfopen('women-s', 1)
     print('end')

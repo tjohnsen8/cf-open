@@ -47,7 +47,10 @@ def parse_aths_2017(req):
     return req.content['athletes']
 
 def parse_aths_2018(req):
-    return req.content['leaderboardRows']
+    if 'leaderboardRows' in req.content.keys():
+        return req.content['leaderboardRows']
+    else:
+        return {}
 
 def get_name_score_2017(ath):
     return ath['name'], ath['scores'][0]['scoredisplay']

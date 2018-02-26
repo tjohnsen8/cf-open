@@ -1,5 +1,6 @@
 import requests
 import threading
+import json
 
 class Request:
     def __init__(self, url):
@@ -12,7 +13,11 @@ class Request:
     def _callback(self):
         page = requests.get(self.url)
         with self.lock:
-            self.content = page.json()
+            try:
+                self.content = page.json()
+            except json.decoder.JSONDecodeError as err:
+                self.content = {}
+            
  
     def __await__(self):
         yield
